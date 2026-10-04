@@ -34,7 +34,7 @@ function devFlags() {
   return { fixtures: params.get("cw-fixtures") === "1", fail: new Set((params.get("cw-fail") ?? "").split(",").filter(Boolean)) };
 }
 
-export function useCosmicWeather(location: { latitude: number; longitude: number; stationId?: string }) {
+export function useCosmicWeather(location: { latitude: number; longitude: number; stationId?: string }, enabled = true) {
   const [feeds, setFeeds] = useState<Feeds>(() => readCache().feeds);
   const [meta, setMeta] = useState<Record<FeedKey, FeedMeta>>(() => {
     const cached = readCache().meta;
@@ -92,6 +92,7 @@ export function useCosmicWeather(location: { latitude: number; longitude: number
   }, [location.latitude, location.longitude, location.stationId]);
 
   useEffect(() => {
+    if (!enabled) return;
     const controller = new AbortController();
     const due = (force = false) => {
       if (typeof document !== "undefined" && document.hidden && !force) return;
@@ -113,7 +114,7 @@ export function useCosmicWeather(location: { latitude: number; longitude: number
       document.removeEventListener("visibilitychange", wake);
       window.removeEventListener("online", goOnline); window.removeEventListener("offline", goOffline);
     };
-  }, [load]);
+  }, [load, enabled]);
 
   const refresh = useCallback(() => { (Object.keys(ENDPOINTS) as FeedKey[]).forEach((key) => void load(key)); }, [load]);
 
