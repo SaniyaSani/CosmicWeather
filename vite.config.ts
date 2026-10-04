@@ -1,40 +1,43 @@
 import vinext from "vinext";
 import { defineConfig } from "vite";
-import hostingConfig from "./.openai/hosting.json";
 import { readExecutionProfile } from "./scripts/execution-profile.mjs";
 import { sites } from "./build/sites-vite-plugin";
 import { connectorPreview } from "./build/connector-preview-plugin.mjs";
 
-const SITE_CREATOR_PLACEHOLDER_DATABASE_ID =
-  "00000000-0000-4000-8000-000000000000";
-
-const { d1, r2 } = hostingConfig;
+/**
+ * Portable Cloudflare configuration (no `.openai/hosting.json` needed).
+ *
+ * - Worker name: CF_WORKER_NAME (default "cosmicweather").
+ * - D1 is optional: set D1_DATABASE_ID (and optionally D1_DATABASE_NAME) as a
+ *   build variable to enable the station network and the barometer ingest.
+ *   Without it the site still works; the map shows labelled sample stations.
+ * - Local `pnpm dev` always gets a local D1 so everything can be tried offline.
+ */
+const LOCAL_PLACEHOLDER_DATABASE_ID = "00000000-0000-4000-8000-000000000000";
+const workerName = process.env.CF_WORKER_NAME ?? "cosmicweather";
+const d1DatabaseId = process.env.D1_DATABASE_ID;
+const d1DatabaseName = process.env.D1_DATABASE_NAME ?? "invisible-weather";
 
 // macOS Seatbelt blocks FSEvents, so Codex previews need polling for HMR.
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
 const managedLinux = readExecutionProfile() === "managed-linux";
 
-const localBindingConfig = {
+const workerConfig = (command: "build" | "serve") => ({
+  name: workerName,
   main: "./build/sites-worker.ts",
+  compatibility_date: "2026-05-15",
   compatibility_flags: ["nodejs_compat"],
-  d1_databases: d1
+  d1_databases: d1DatabaseId || command === "serve"
     ? [
         {
-          binding: d1,
-          database_name: "site-creator-d1",
-          database_id: SITE_CREATOR_PLACEHOLDER_DATABASE_ID,
+          binding: "DB",
+          database_name: d1DatabaseName,
+          database_id: d1DatabaseId ?? LOCAL_PLACEHOLDER_DATABASE_ID,
+          migrations_dir: "drizzle",
         },
       ]
     : [],
-  r2_buckets: r2
-    ? [
-        {
-          binding: r2,
-          bucket_name: "site-creator-r2",
-        },
-      ]
-    : [],
-};
+});
 
 export default defineConfig(async ({ command }) => {
   // Use Miniflare's local Request.cf placeholder unless fetching is requested.
@@ -68,7 +71,7 @@ export default defineConfig(async ({ command }) => {
         viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
         inspectorPort: false,
         config: {
-          ...localBindingConfig,
+          ...workerConfig(command),
           ...(command === "serve"
             ? {
                 services: [

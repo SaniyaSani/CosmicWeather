@@ -99,6 +99,23 @@ pnpm install
 pnpm dev            # add ?cw-fixtures=1 to the URL for synthetic Cosmic Weather data (dev builds only)
 ```
 
+## Deploy to Cloudflare Workers from GitHub
+
+This is a **vinext** (Next.js API on Vite) app, not a classic Next.js build — do not let Cloudflare run OpenNext.
+
+Workers → *Settings → Build*:
+
+| Setting | Value |
+|---|---|
+| Build command | `pnpm run build` |
+| Deploy command | `npx wrangler deploy` |
+| Root directory | the folder that contains `package.json` |
+
+The build writes `dist/server/wrangler.json` and a redirect in `.wrangler/deploy/`, so `wrangler deploy` needs no
+root config. Optional build variables: `CF_WORKER_NAME` (default `cosmicweather`), `D1_DATABASE_ID`,
+`D1_DATABASE_NAME`. For the station network / barometer: `npx wrangler d1 create invisible-weather`, put the id in
+`D1_DATABASE_ID`, then `npx wrangler d1 migrations apply invisible-weather --remote`.
+
 ## Network API
 
 - `GET /api/network` — active stations seen in the last 15 minutes
