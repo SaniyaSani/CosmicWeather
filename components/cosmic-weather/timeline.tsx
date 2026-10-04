@@ -47,14 +47,17 @@ type Props = {
   correctionActive: boolean;
   onSelectEvent: (event: CosmicEvent) => void;
   selectedEventId: string | null;
+  height?: number;
+  /** Extra tick marks (e.g. individual local pulses) drawn on the zero line. */
+  pulses?: number[];
   now: number;
 };
 
-export function CosmicTimeline({ series, events, from, to, toggles, correctionActive, onSelectEvent, selectedEventId, now }: Props) {
+export function CosmicTimeline({ series, events, from, to, toggles, correctionActive, onSelectEvent, selectedEventId, now, height: fixedHeight, pulses = [] }: Props) {
   const [ref, size] = useSize<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
   const width = Math.max(1, size.width);
-  const height = width < 600 ? 300 : 360;
+  const height = fixedHeight ?? (width < 600 ? 300 : 360);
   const m = { left: 46, right: 54, top: 30, bottom: 44 };
   const plotW = Math.max(10, width - m.left - m.right);
   const plotH = height - m.top - m.bottom;
@@ -82,12 +85,12 @@ export function CosmicTimeline({ series, events, from, to, toggles, correctionAc
   };
 
   const timeTicks = useMemo(() => {
-    const span = to - from; const step = span <= 30 * 3_600_000 ? 3 * 3_600_000 : span <= 4 * 86_400_000 ? 12 * 3_600_000 : 86_400_000;
+    const span = to - from; const step = span <= 30 * 3_600_000 ? (width < 600 ? 6 : 3) * 3_600_000 : span <= 4 * 86_400_000 ? 12 * 3_600_000 : 86_400_000;
     const offset = new Date().getTimezoneOffset() * 60_000;
     const ticks: number[] = [];
     for (let t = Math.ceil((from - offset) / step) * step + offset; t <= to; t += step) ticks.push(t);
     return ticks;
-  }, [from, to]);
+  }, [from, to, width]);
   const shortSpan = to - from <= 30 * 3_600_000;
   const fmtTick = (t: number) => new Intl.DateTimeFormat("en-GB", shortSpan ? { hour: "2-digit", minute: "2-digit" } : { weekday: "short", day: "2-digit", hour: "2-digit" }).format(t);
   const tz = new Intl.DateTimeFormat("en-GB", { timeZoneName: "short" }).formatToParts(now).find((part) => part.type === "timeZoneName")?.value ?? "local";
@@ -116,6 +119,7 @@ export function CosmicTimeline({ series, events, from, to, toggles, correctionAc
         <text x={m.left + plotW} y={height - 4} textAnchor="end" className="wf-axis-title">TIME ({tz})</text>
       </g>
       <line x1={m.left} x2={m.left + plotW} y1={yPct(0)} y2={yPct(0)} className="wf-baseline" />
+      {pulses.filter((t) => t >= from && t <= to).map((t, index) => <line key={`p${index}-${t}`} x1={x(t)} x2={x(t)} y1={yPct(0) - 4} y2={yPct(0) + 4} className="cw-pulse-tick" />)}
       {toggles.geomagnetic && <g className="cw-kp">
         {series.kp.filter((point) => point.t >= from - 3 * 3_600_000 && point.t <= to).map((point) => { const x0 = Math.max(m.left, x(point.t)); const x1 = Math.min(m.left + plotW, x(point.t + 3 * 3_600_000)); if (x1 <= x0) return null; const h = (point.v / 9) * (kpBand - 6); return <rect key={point.t} x={x0 + 0.5} width={Math.max(0.5, x1 - x0 - 1)} y={m.top + plotH - h} height={h} className={point.v >= 5 ? "storm" : ""} />; })}
         <text x={m.left + 4} y={m.top + plotH - kpBand + 10} className="wf-small">Kp</text>

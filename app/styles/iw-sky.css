@@ -147,3 +147,39 @@
 .iw-sound { display: flex; align-items: center; justify-content: flex-end; gap: 14px; margin-top: 18px; font-family: var(--mono); font-size: 9.5px; letter-spacing: .08em; color: var(--fg-2); }
 .iw-sound > span:first-child { display: inline-flex; align-items: center; gap: 8px; }
 .iw-sep { width: 1px; height: 14px; background: var(--line-2); }
+
+/* --- Context chips under the live pulse ------------------------------------------- */
+.iw-context { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; font-family: var(--mono); font-size: 9.5px; letter-spacing: .06em; }
+.iw-context span { display: inline-flex; align-items: center; gap: 8px; padding: 4px 8px; border: 1px solid var(--line-2); color: var(--fg-2); animation: iw-fade .5s ease both; opacity: 0; }
+.iw-context i { width: 7px; height: 7px; border: 1px solid currentColor; }
+.iw-context .ctx-space { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 50%, transparent); }
+.iw-context .ctx-network { color: var(--accent-2); border-color: color-mix(in srgb, var(--accent-2) 50%, transparent); }
+.iw-context .ctx-network i, .iw-context .ctx-space i { background: currentColor; }
+.iw-context .ctx-none { border-style: dashed; color: var(--fg-3); }
+
+/* --- Cosmic Weather on SKY ------------------------------------------------------------ */
+.sky-cosmic { margin-top: 14px; }
+.sky-strip { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 0 0 16px; padding: 0; list-style: none; border-top: 1px solid var(--line-2); }
+.sky-strip li { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 12px 12px 12px 0; }
+.sky-strip li + li { padding-left: 12px; border-left: 1px solid var(--line); }
+.sky-strip strong { font-family: var(--display); font-size: clamp(20px, 2vw, 30px); font-weight: 400; letter-spacing: -.03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sky-strip small { display: inline-flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 9px; letter-spacing: .04em; color: var(--fg-2); }
+.cw-anchor-mini { display: inline-block; width: 7px; height: 7px; border: 1px solid var(--fg); }
+.sky-verdict { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: baseline; gap: 6px 18px; padding: 10px 0 14px; border-top: 1px solid var(--line); }
+.sky-verdict b { font-family: var(--mono); font-size: 11px; font-weight: 500; letter-spacing: .12em; color: var(--accent); }
+.sky-verdict.cls-normal b { color: var(--fg); } .sky-verdict.cls-insufficient-data b { color: var(--fg-2); } .sky-verdict.cls-local-anomaly b { color: var(--warn); }
+.sky-verdict span { font-family: var(--mono); font-size: 9.5px; letter-spacing: .08em; color: var(--fg-2); }
+.sky-verdict p { margin: 0; font-size: 13.5px; line-height: 1.45; color: var(--fg); }
+.sky-toggles label.static { cursor: default; color: var(--fg-2); }
+.sw-pulse { width: 1px !important; height: 9px !important; border: 0 !important; background: var(--trace); }
+.cw-pulse-tick { stroke: var(--trace); stroke-width: 1; opacity: .8; }
+.sky-event { margin-top: 12px; }
+.iw-grid-cosmic { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 860px) {
+  .sky-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sky-strip li:nth-child(odd) { padding-left: 0; border-left: 0; }
+  .sky-strip li:nth-child(n+3) { border-top: 1px solid var(--line); }
+  .sky-strip li:last-child { grid-column: 1 / -1; }
+  .sky-verdict { grid-template-columns: auto auto; }
+  .sky-verdict p { grid-column: 1 / -1; }
+}

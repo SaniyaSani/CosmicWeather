@@ -8,6 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { CosmicWeather } from "@/components/cosmic-weather/cosmic-weather";
+import { SkyCosmic } from "@/components/cosmic-weather/sky-cosmic";
+import { temporalOverlaps } from "@/lib/cosmic/interpretation";
+import { loadCorrectionConfig } from "@/lib/cosmic/pressure";
+import { useCosmicSnapshot } from "@/lib/cosmic/use-cosmic-snapshot";
 import { CoincidenceViewer, EventInspector, RecentSignals, SignalGallery, TopSignalsTable, useAnalyzed } from "@/components/iw/archive";
 import { BreathingBuildings } from "@/components/iw/breathing-buildings";
 import { BuildGuide } from "@/components/iw/build-guide";
@@ -766,6 +770,23 @@ export default function Home() {
   const inspectedCluster = inspected ? clusters.find((cluster) => cluster.times[stationId] === inspected.pulse.at) ?? null : null;
   const recentAudio = allRecords.filter((pulse) => pulse.source === "audio" && clockNow - pulse.at < 2 * 3_600_000);
   const acceptedFraction = recentAudio.length >= 10 ? recentAudio.filter((pulse) => pulse.accepted).length / recentAudio.length : null;
+  // --- Cosmic Weather on SKY: same snapshot as DATA, polled only while SKY is open.
+  const detectorContext = useMemo(() => ({ connected: detectorConnected, calibrated: calibrationReady, demo: !detectorConnected, mode: detectorMode, lastPulseAt: allRecords.find((pulse) => pulse.source === "audio")?.at ?? null, clipping: clipFraction > .01, acceptedFraction }), [detectorConnected, calibrationReady, detectorMode, allRecords, clipFraction, acceptedFraction]);
+  const [skyCorrection] = useState(() => loadCorrectionConfig());
+  const skySnapshot = useCosmicSnapshot({ location: place, stationId: networkJoined ? stationId : undefined, detector: detectorContext, rangeMs: 24 * 3_600_000, baselineMs: 24 * 3_600_000, correction: skyCorrection, logMode: "sky", enabled: view === "sky" });
+  const skyEvents = skySnapshot.derived.events;
+  const relDelta = (ms: number) => { const minutes = Math.round(ms / 60_000); return Math.abs(minutes) < 120 ? `${minutes > 0 ? "+" : "−"}${Math.abs(minutes)} MIN` : `${ms > 0 ? "+" : "−"}${Math.round(Math.abs(ms) / 3_600_000)} H`; };
+  const spaceNotesFor = useCallback((at: number) => temporalOverlaps(at, skyEvents.filter((event) => event.type !== "local-anomaly"))
+    .slice(0, 3).map(({ event, offsetMs }) => `${event.title.toUpperCase()} ${relDelta(offsetMs)} · ${event.source}`), [skyEvents]);
+  const latestLivePulse = pulseLog[0];
+  const liveContext = useMemo(() => {
+    if (!latestLivePulse) return [];
+    const notes: { kind: "space" | "network"; text: string }[] = spaceNotesFor(latestLivePulse.at).map((text) => ({ kind: "space" as const, text: `TEMPORAL OVERLAP · ${text}` }));
+    const cluster = latestLivePulse.source === "audio" ? clusters.find((item) => item.times[stationId] === latestLivePulse.at) : undefined;
+    if (cluster) notes.unshift({ kind: "network", text: `NETWORK COINCIDENCE CANDIDATE · ${cluster.stations.length} STATIONS · Δt ${cluster.spanMs} MS` });
+    return notes;
+  }, [latestLivePulse, spaceNotesFor, clusters, stationId]);
+  const skyPulseTimes = useMemo(() => allRecords.filter((pulse) => pulse.accepted && pulse.source === "audio").map((pulse) => pulse.at), [allRecords]);
   const unit = amplitudeUnit(inputCalibration);
   const streamPeriodUs = (Math.max(1, Math.floor(2048 / 256)) * 1e6) / sampleRate;
   const subtitle = layer === "air" ? "BREATHING BUILDINGS" : "COSMIC RAIN";
@@ -800,13 +821,15 @@ export default function Home() {
         <div className="iw-wrap">
           <CalibrationControl connected={detectorConnected} calibrating={isCalibrating} progress={calibrationProgress} ready={calibrationReady} seconds={calibrationSeconds} sampleRate={sampleRate} noise={noiseFloor} thresholdSigma={thresholdSigma} locked={calibrationLocked} calibratedAt={calibratedAt} calibration={inputCalibration} onCalibrate={calibrateNoise} onConnect={() => setConnectionGuideOpen(true)} />
           <div className="iw-grid iw-grid-live">
-            <LiveSignal pulse={pulseLog[0]} stream={scopeSamples} streamPeriodUs={streamPeriodUs} connected={detectorConnected} demo={!detectorConnected} calibrated={calibrationReady} threshold={absoluteThreshold} noise={noiseFloor} prefs={prefs} />
+            <LiveSignal pulse={pulseLog[0]} stream={scopeSamples} streamPeriodUs={streamPeriodUs} connected={detectorConnected} demo={!detectorConnected} calibrated={calibrationReady} threshold={absoluteThreshold} noise={noiseFloor} prefs={prefs} context={liveContext} />
             <DetectorStatus demo={!detectorConnected} connected={detectorConnected} calibrated={calibrationReady} locked={calibrationLocked} inputLabel={detectorMessage} mode={detectorMode} thresholdSigma={thresholdSigma} noise={noiseFloor} sampleRate={sampleRate} clipFraction={clipFraction} networkJoined={networkJoined} connectedAt={connectedAt} calibration={inputCalibration} peerCount={peerEvents.length} />
           </div>
+          <SkyCosmic snapshot={skySnapshot} pulses={skyPulseTimes} onOpenData={() => goTo("data")} />
           <div className="iw-grid iw-grid-archive">
             <RecentSignals records={allRecords} prefs={prefs} onViewAll={() => goTo("signal", "archive")} selectedId={inspectId} />
             <TopSignalsTable items={acceptedToday} prefs={prefs} subtitle={detectorConnected ? "TODAY" : "TODAY · INCLUDES DEMO"} />
           </div>
+          <div className="iw-grid iw-grid-cosmic"><CoincidenceViewer stations={coincidenceStations} now={clockNow} /></div>
           <div className="iw-sound"><span>{sound ? <Volume2 size={15} /> : <VolumeX size={15} />} SONIFY DETECTIONS</span><Switch checked={sound} onCheckedChange={setSound} aria-label="Sonify detections" /><span className="iw-sep" /><button type="button" className="iw-text-link muted" onClick={() => setPaused((current) => !current)}>{paused ? "RESUME DEMO" : "PAUSE DEMO"}</button></div>
         </div>
       </>}
@@ -921,7 +944,7 @@ export default function Home() {
       </div>}
     </main>
 
-    {inspected && <EventInspector item={inspected} prefs={prefs} detectorLabel={detectorMessage} coincidence={inspectedCluster} onClose={() => setInspectId(null)} onPrev={inspectIndex > 0 ? () => setInspectId(analyzed[inspectIndex - 1].pulse.id) : undefined} onNext={inspectIndex < analyzed.length - 1 ? () => setInspectId(analyzed[inspectIndex + 1].pulse.id) : undefined} />}
+    {inspected && <EventInspector item={inspected} prefs={prefs} detectorLabel={detectorMessage} coincidence={inspectedCluster} spaceContext={inspected ? spaceNotesFor(inspected.pulse.at) : []} onClose={() => setInspectId(null)} onPrev={inspectIndex > 0 ? () => setInspectId(analyzed[inspectIndex - 1].pulse.id) : undefined} onNext={inspectIndex < analyzed.length - 1 ? () => setInspectId(analyzed[inspectIndex + 1].pulse.id) : undefined} />}
 
     <Dialog open={connectionGuideOpen} onOpenChange={setConnectionGuideOpen}>
       <DialogContent className="iw-dialog">

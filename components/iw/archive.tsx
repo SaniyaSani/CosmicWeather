@@ -121,7 +121,7 @@ function ShapeGlyph({ shape }: { shape: ShapeClass }) {
 
 // --- Event inspector -----------------------------------------------------------------------
 
-export function EventInspector({ item, prefs, onClose, onPrev, onNext, coincidence, detectorLabel }: { item: AnalyzedPulse; prefs: SignalPrefs; onClose: () => void; onPrev?: () => void; onNext?: () => void; coincidence: CoincidenceCluster | null; detectorLabel: string }) {
+export function EventInspector({ item, prefs, onClose, onPrev, onNext, coincidence, detectorLabel, spaceContext = [] }: { item: AnalyzedPulse; prefs: SignalPrefs; onClose: () => void; onPrev?: () => void; onNext?: () => void; coincidence: CoincidenceCluster | null; detectorLabel: string; spaceContext?: string[] }) {
   const { pulse, analysis } = item;
   const [zoomed, setZoomed] = useState(true);
   const unit = amplitudeUnit(prefs.calibration); const aUnit = areaUnit(prefs.calibration);
@@ -148,6 +148,7 @@ export function EventInspector({ item, prefs, onClose, onPrev, onNext, coinciden
     ["DECISION", pulse.accepted ? "PARTICLE CANDIDATE" : pulse.reason.toUpperCase(), "DERIVED"],
     ["DETECTOR", pulse.source === "demo" ? "DEMO STREAM · SIMULATED" : `${pulse.inputLabel ?? detectorLabel} · ${String(pulse.mode ?? "").toUpperCase()}`, "MEASURED"],
     ["COINCIDENCE", coincidence ? `${coincidence.stations.length} STATIONS · Δt ${coincidence.spanMs} ms · CANDIDATE` : "NONE FOUND", coincidence ? "INFERENCE" : "DERIVED"],
+    ["SPACE WEATHER", spaceContext.length ? `TEMPORAL OVERLAP · ${spaceContext.join(" · ")}` : "NO EVENT IN WINDOW", "INFERENCE"],
     ["PARTICLE ENERGY", "UNAVAILABLE — NEEDS ENERGY CALIBRATION", "UNAVAILABLE"],
     ["PARTICLE IDENTITY", "CANDIDATE ONLY — NOT IDENTIFIABLE FROM ONE PULSE", "INFERENCE"],
   ];

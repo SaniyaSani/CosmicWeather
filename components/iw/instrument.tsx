@@ -74,9 +74,11 @@ type LiveProps = {
   threshold: number;
   noise: number;
   prefs: SignalPrefs;
+  /** Temporal-overlap / coincidence notes for the shown pulse. */
+  context?: { kind: "space" | "network"; text: string }[];
 };
 
-export function LiveSignal({ pulse, stream, streamPeriodUs, connected, demo, calibrated, threshold, noise, prefs }: LiveProps) {
+export function LiveSignal({ pulse, stream, streamPeriodUs, connected, demo, calibrated, threshold, noise, prefs, context = [] }: LiveProps) {
   const [mode, setMode] = useState<"event" | "stream">("event");
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 400); return () => window.clearInterval(timer); }, []);
@@ -99,6 +101,9 @@ export function LiveSignal({ pulse, stream, streamPeriodUs, connected, demo, cal
           ? <WaveformPlot samples={connected ? stream : Array(128).fill(0)} samplePeriodUs={streamPeriodUs} calibration={prefs.calibration} threshold={calibrated ? threshold : null} orientation={prefs.polarity === "positive" ? 1 : -1} showArea={false} callouts={false} live height={290} ariaLabel="Raw detector input stream" />
           : pulse && analysis && <WaveformPlot key={pulse.id} samples={pulse.samples} samplePeriodUs={samplePeriodOf(pulse)} analysis={analysis} calibration={prefs.calibration} threshold={pulse.threshold ?? (calibrated ? threshold : null)} orientation={analysis.orientation} editable onWindowChange={(next) => prefs.setWindow(pulse.id, next)} flashKey={pulse.id} eventLabel={fresh ? `EVENT DETECTED ${eventCode(pulse.id)}` : eventCode(pulse.id)} live={Boolean(fresh)} zoom height={290} ariaLabel={`Waveform of event ${eventCode(pulse.id)}`} />}
         {showStream && !connected && <p className="iw-plot-empty">{demo ? "Demo pulses have no raw stream. Connect the detector to see the real audio input." : "Connect the detector to see the real audio input."}</p>}
+        {!showStream && pulse && <div className="iw-context" aria-live="polite">
+          {context.length ? context.map((item) => <span key={item.text} className={`ctx-${item.kind}`}><i aria-hidden="true" />{item.text}</span>) : <span className="ctx-none"><i aria-hidden="true" />NO SPACE-WEATHER EVENT OR NETWORK COINCIDENCE NEAR THIS PULSE</span>}
+        </div>}
         {showStream && connected && <p className="iw-plot-note">RAW INPUT · DECIMATED FOR DISPLAY · {formatDuration(streamPeriodUs * Math.max(1, stream.length - 1))} WINDOW</p>}
       </div>
       <dl className="iw-metrics">
